@@ -212,8 +212,7 @@ public class CloggedPlugin extends Plugin {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 if (!response.isSuccessful()) {
-                    log.error("Failed to get user collection log: {}", response.message());
-                    showLookupFailedMessage();
+                    response.close();
                     return;
                 }
 

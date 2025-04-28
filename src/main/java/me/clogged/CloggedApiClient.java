@@ -86,13 +86,13 @@ public class CloggedApiClient {
                             .header("Proxy-Authorization", credential)
                             .build();
                 };
-                return new OkHttpClient.Builder()
+                return okHttpClient.newBuilder()
                         .proxy(proxy)
                         .proxyAuthenticator(proxyAuthenticator)
                         .build();
             }
 
-            return new OkHttpClient.Builder()
+            return okHttpClient.newBuilder()
                     .proxy(proxy)
                     .build();
         }
