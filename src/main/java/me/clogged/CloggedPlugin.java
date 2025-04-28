@@ -36,7 +36,8 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @PluginDescriptor(
-        name = "Clogged"
+        name = "Clogged.me",
+        description = "Sync your collection log with Clogged.me and view other players' logs"
 )
 public class CloggedPlugin extends Plugin {
     private static final String COLLECTION_LOG_COMMAND_STRING = "!clog";
