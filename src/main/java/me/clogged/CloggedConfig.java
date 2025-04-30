@@ -10,7 +10,7 @@ import net.runelite.client.config.ConfigSection;
 @ConfigGroup("clogged")
 public interface CloggedConfig extends Config
 {
-	String PLUGIN_VERSION = "1.0.0";
+	String PLUGIN_VERSION = "1.1.0";
 
 	@ConfigItem(
 		keyName = "enableSync",
