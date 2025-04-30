@@ -45,14 +45,11 @@ public class CloggedPlugin extends Plugin {
     private static final int CLOG_SEARCH_WIDGET_ID = 40697932;
     private static final int COLLECTION_LOG_SCRIPT_ID = 4100;
     private static final int TICKS_TO_WAIT_AFTER_LOAD = 2;
-
-    private final CollectionLogStructure collectionLogStructure = new CollectionLogStructure();
     private final UserCollectionLog userCollectionLog = new UserCollectionLog();
     private final Map<Integer, Integer> loadedCollectionLogIcons = new HashMap<>();
 
     private int ticksToWait = 0;
     private int collectionLogScriptFiredTick = -1;
-    private boolean structureCreated = false;
     private boolean collectionLogInterfaceOpenedAndSynced = false;
 
     @Inject private Client client;
@@ -81,13 +78,6 @@ public class CloggedPlugin extends Plugin {
     }
 
     // Event Handling
-
-    @Subscribe
-    public void onGameStateChanged(GameStateChanged gameStateChanged) {
-        if (!structureCreated && gameStateChanged.getGameState() == GameState.LOGGED_IN) {
-            clientThread.invokeLater(this::createCollectionLogStructure);
-        }
-    }
 
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded widgetLoaded) {
@@ -147,10 +137,10 @@ public class CloggedPlugin extends Plugin {
 
     private void processScriptArguments(Object[] args) {
         int itemId = (int) args[1];
+        int quantity = (int) args[2];
         if (itemId > 0) {
             try {
-                CollectionLogItem item = collectionLogStructure.findItemById(itemId);
-                userCollectionLog.markItemAsObtained(item.getSubCategoryId(), itemId);
+                userCollectionLog.markItemAsObtained(itemId, quantity);
             } catch (NullPointerException e) {
                 log.warn("Item ID {} not found in collection log structure", itemId);
             }
@@ -168,6 +158,8 @@ public class CloggedPlugin extends Plugin {
 
         if (commandArg.equals("sync")) {
             clientThread.invoke(this::updateUserCollectionLog);
+        } else if (commandArg.equals("help")) {
+            clientThread.invoke(this::showHelpMessage);
         } else {
             handleSubCategoryLookup(chatMessage, commandArg);
         }
@@ -185,23 +177,17 @@ public class CloggedPlugin extends Plugin {
                 return;
             }
 
-            SubCategory subCategory = collectionLogStructure.findSubCategoryByName(AliasHelper.ClogAlias(commandArg));
-            if (subCategory == null) {
-                return;
-            }
-
             String username = Text.sanitize(chatMessage.getName());
             if (chatMessage.getType().equals(ChatMessageType.PRIVATECHATOUT))
             {
                 username = client.getLocalPlayer().getName();
             }
 
-            int subCategoryId = subCategory.getId();
-            cloggedApiClient.getUserCollectionLog(username, subCategoryId, createLookupCallback(subCategoryId, chatMessage));
+            cloggedApiClient.getUserCollectionLog(username, commandArg, createLookupCallback(chatMessage));
         });
     }
 
-    private Callback createLookupCallback(int subCategoryId, ChatMessage chatMessage) {
+    private Callback createLookupCallback(ChatMessage chatMessage) {
         return new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -221,7 +207,7 @@ public class CloggedPlugin extends Plugin {
                 CollectionLogLookupResponse lookupResponse = gson.fromJson(responseBody, CollectionLogLookupResponse.class);
 
                 clientThread.invoke(() -> {
-                    String replacementMessage = buildReplacementMessage(lookupResponse, subCategoryId);
+                    String replacementMessage = buildReplacementMessage(lookupResponse);
                     updateChatMessage(chatMessage, replacementMessage);
                 });
             }
@@ -231,90 +217,6 @@ public class CloggedPlugin extends Plugin {
     private void updateChatMessage(ChatMessage chatMessage, String text) {
         chatMessage.getMessageNode().setValue(text);
         client.refreshChat();
-    }
-
-    // Collection Log Management
-
-    private void createCollectionLogStructure() {
-        Map<String, Category> categories = createCategories();
-        Map<String, Integer> collectionLogCategoriesMap = createCategoryEnumMap();
-
-        populateCategoriesFromEnums(categories, collectionLogCategoriesMap);
-
-        // Add all categories to the structure
-        for (Category category : categories.values()) {
-            collectionLogStructure.addCategory(category);
-        }
-        structureCreated = true;
-    }
-
-    private Map<String, Category> createCategories() {
-        return Map.of(
-                "bosses", new Category("Bosses"),
-                "raids", new Category("Raids"),
-                "clues", new Category("Clues"),
-                "minigames", new Category("Minigames"),
-                "other", new Category("Other")
-        );
-    }
-
-    private Map<String, Integer> createCategoryEnumMap() {
-        return Map.of(
-                "bosses", 2103,
-                "raids", 2104,
-                "clues", 2105,
-                "minigames", 2106,
-                "other", 2107
-        );
-    }
-
-    private void populateCategoriesFromEnums(Map<String, Category> categories, Map<String, Integer> enumMap) {
-        for (Map.Entry<String, Integer> entry : enumMap.entrySet()) {
-            String categoryName = entry.getKey();
-            int enumId = entry.getValue();
-            Category category = categories.get(categoryName);
-
-            int[] subcategoryIds = client.getEnum(enumId).getIntVals();
-            for (int subcategoryId : subcategoryIds) {
-                SubCategory subCategory = createSubCategoryFromStruct(subcategoryId);
-                category.addSubCategory(subCategory);
-            }
-        }
-    }
-
-    private SubCategory createSubCategoryFromStruct(int subcategoryId) {
-        StructComposition subcategoryStruct = client.getStructComposition(subcategoryId);
-        String subcategoryName = subcategoryStruct.getStringValue(689);
-        int[] items = client.getEnum(subcategoryStruct.getIntValue(690)).getIntVals();
-
-        SubCategory subCategory = new SubCategory(
-                subcategoryName,
-                subcategoryId,
-                new HashSet<>(),
-                getSummedKcForBoss(subcategoryName)
-        );
-
-        for (int itemId : items) {
-            CollectionLogItem item = new CollectionLogItem(
-                    itemId,
-                    client.getItemDefinition(itemId).getName(),
-                    subcategoryId
-            );
-            subCategory.addItem(item);
-        }
-
-        // For whatever reason, these two item ids in the enum do not match
-        // Special handling for Mahogany Homes
-        if (subcategoryId == 1689) {
-            subCategory.addItem(new CollectionLogItem(25629, "Plank sack", subcategoryId));
-        }
-
-        // Special handling for Motherlode Mine
-        if (subcategoryId == 530) {
-            subCategory.addItem(new CollectionLogItem(25627, "Coal bag", subcategoryId));
-        }
-
-        return subCategory;
     }
 
     private void updateUserCollectionLog() {
@@ -329,27 +231,15 @@ public class CloggedPlugin extends Plugin {
             return;
         }
 
+        populateUserCollectionLogKcs();
+
         // Trigger search to load all items
         client.menuAction(-1, CLOG_SEARCH_WIDGET_ID, MenuAction.CC_OP, 1, -1, "Search", null);
         client.runScript(2240);
     }
 
-    private void updateSubcategoryKcs() {
-        for (Category category : collectionLogStructure.getCategories().values()) {
-            for (SubCategory subCategory : category.getSubCategories().values()) {
-                int kc = getSummedKcForBoss(subCategory.getName());
-                if (kc < 1) {
-                    continue;
-                }
-
-                subCategory.setKc(kc);
-            }
-        }
-    }
-
     private void syncCollectionLog() {
         showSyncingMessage();
-        updateSubcategoryKcs();
         String userDataJson = createUserCollectionLogJson();
         cloggedApiClient.updateUserCollectionLog(userDataJson, createUploadCallback());
     }
@@ -358,8 +248,8 @@ public class CloggedPlugin extends Plugin {
         Map<String, Object> userDataMap = new HashMap<>();
         userDataMap.put("username", client.getLocalPlayer().getName());
         userDataMap.put("accountHash", client.getAccountHash());
-        userDataMap.put("collectedIds", userCollectionLog.getSubCategoryItemIds());
-        userDataMap.put("categories", collectionLogStructure.getCategoryJson());
+        userDataMap.put("collectedItems", userCollectionLog.getItemJson());
+        userDataMap.put("subcategories", userCollectionLog.getSubcategoryJson());
         return gson.toJson(userDataMap);
     }
 
@@ -380,6 +270,13 @@ public class CloggedPlugin extends Plugin {
     }
 
     // UI and Message Helpers
+
+    private void showHelpMessage() {
+        chatMessageManager.queue(QueuedMessage.builder()
+                .type(ChatMessageType.GAMEMESSAGE)
+                .runeLiteFormattedMessage("Ensure all plugin options are configured to your liking and open the collection log interface to sync. If method is set to manual, you must type '!clog sync' with the interface open.")
+                .build());
+    }
 
     private void showSyncingDisabledMessage() {
         chatMessageManager.queue(QueuedMessage.builder()
@@ -437,17 +334,17 @@ public class CloggedPlugin extends Plugin {
                 .build());
     }
 
-    private String buildReplacementMessage(CollectionLogLookupResponse response, int subCategoryId) {
+    private String buildReplacementMessage(CollectionLogLookupResponse response) {
         int kc = response.getKc();
-        SubCategory subCategory = collectionLogStructure.findSubCategoryById(subCategoryId);
+        String subcategoryName = response.getSubcategoryName();
+        List<CollectionLogItem> items = response.getItems();
 
-        List<CollectionLogItem> obtainedItems = getObtainedItems(response);
-        if (obtainedItems.isEmpty()) {
+        if (items.isEmpty()) {
             return "No items found for input";
         }
 
         StringBuilder messageBuilder = new StringBuilder();
-        messageBuilder.append(subCategory.getName());
+        messageBuilder.append(subcategoryName);
 
         if (kc > 0) {
             messageBuilder.append(" (").append(kc).append(" KC)");
@@ -455,38 +352,37 @@ public class CloggedPlugin extends Plugin {
         messageBuilder.append(": ");
 
         if (config.displayMethod() == DisplayMethod.ICON) {
-            loadClogIcons(obtainedItems);
+            loadClogIcons(items);
         }
 
-        appendItems(messageBuilder, obtainedItems);
+        appendItems(messageBuilder, items);
         return messageBuilder.toString();
-    }
-
-    private List<CollectionLogItem> getObtainedItems(CollectionLogLookupResponse response) {
-        List<CollectionLogItem> obtainedItems = new ArrayList<>();
-        for (int itemId : response.getItems()) {
-            CollectionLogItem item = collectionLogStructure.findItemById(itemId);
-            if (item != null) {
-                obtainedItems.add(item);
-            }
-        }
-        return obtainedItems;
     }
 
     // Appends items to the message builder based on the display method
     private void appendItems(StringBuilder builder, List<CollectionLogItem> items) {
         for (CollectionLogItem item : items) {
+            String itemName = client.getItemDefinition(item.getItemId()).getName();
+
             if (config.displayMethod() == DisplayMethod.TEXT) {
-                builder.append(item.getName()).append(", ");
+                builder.append(itemName);
+                if (!addItemQuantity(builder, item.getQuantity(), true)) {
+                    builder.append(", ");
+                }
+
                 continue;
             }
 
             try {
-                String itemString = "<img=" + loadedCollectionLogIcons.get(item.getId()) + "> ";
-                builder.append(itemString);
+                builder.append("<img=").append(loadedCollectionLogIcons.get(item.getItemId())).append(">");
+                addItemQuantity(builder, item.getQuantity(), false);
+
             } catch (NullPointerException e) {
-                log.warn("Failed to load icon for item ID: {}", item.getId());
-                builder.append(item.getName()).append(", ");
+                log.warn("Failed to load icon for item ID: {}", item.getItemId());
+                builder.append(itemName);
+                if (!addItemQuantity(builder, item.getQuantity(), true)) {
+                    builder.append(", ");
+                }
             }
         }
 
@@ -494,6 +390,17 @@ public class CloggedPlugin extends Plugin {
         if (config.displayMethod() == DisplayMethod.TEXT) {
             builder.setLength(builder.length() - 2);
         }
+    }
+
+    private boolean addItemQuantity(StringBuilder builder, int quantity, boolean leadingSpace) {
+        if (config.showQuantity() && quantity > 1) {
+            if (leadingSpace) {
+                builder.append(" ");
+            }
+            builder.append("(x").append(quantity).append("), ");
+            return true;
+        }
+        return false;
     }
 
     // Icon Management
@@ -514,11 +421,11 @@ public class CloggedPlugin extends Plugin {
 
         for (int i = 0; i < itemsToLoad.size(); i++) {
             final CollectionLogItem item = itemsToLoad.get(i);
-            final IndexedSprite sprite = createSpriteForItem(item.getId());
+            final IndexedSprite sprite = createSpriteForItem(item.getItemId());
             final int spriteIndex = modIconIdx + i;
 
             newModIcons[spriteIndex] = sprite;
-            loadedCollectionLogIcons.put(item.getId(), spriteIndex);
+            loadedCollectionLogIcons.put(item.getItemId(), spriteIndex);
         }
 
         client.setModIcons(newModIcons);
@@ -526,7 +433,7 @@ public class CloggedPlugin extends Plugin {
 
     private List<CollectionLogItem> filterItemsToLoad(List<CollectionLogItem> collectionLogItems) {
         return collectionLogItems.stream()
-                .filter(item -> !loadedCollectionLogIcons.containsKey(item.getId()))
+                .filter(item -> !loadedCollectionLogIcons.containsKey(item.getItemId()))
                 .collect(Collectors.toList());
     }
 
@@ -539,6 +446,36 @@ public class CloggedPlugin extends Plugin {
     private boolean isSyncEnabled() {
         return config.enableSync();
     }
+
+    private Map<String, Integer> createCategoryEnumMap() {
+        return Map.of(
+                "bosses", 2103,
+                "raids", 2104,
+                "clues", 2105,
+                "minigames", 2106,
+                "other", 2107
+        );
+    }
+    private void setSubcategoryKc(int subcategoryId) {
+        StructComposition subcategoryStruct = client.getStructComposition(subcategoryId);
+        String subcategoryName = subcategoryStruct.getStringValue(689);
+
+        int kc = getSummedKcForBoss(subcategoryName);
+        userCollectionLog.markSubcategoryAsObtained(subcategoryId, kc);
+    }
+
+    private void populateUserCollectionLogKcs() {
+        Map<String, Integer> categoryEnumMap = createCategoryEnumMap();
+        for (Map.Entry<String, Integer> entry : categoryEnumMap.entrySet()) {
+            int enumId = entry.getValue();
+            int[] subcategoryIds = client.getEnum(enumId).getIntVals();
+            for (int subcategoryId : subcategoryIds) {
+                setSubcategoryKc(subcategoryId);
+            }
+        }
+    }
+
+
 
     // Since the collection log doesn't separate bosses into their own subcategories, sum the kc of them
     private int getSummedKcForBoss(String boss) {

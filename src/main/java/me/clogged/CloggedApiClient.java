@@ -40,11 +40,11 @@ public class CloggedApiClient {
         }
     }
 
-    public void getUserCollectionLog(String username, int subCategoryId, Callback callback) {
+    public void getUserCollectionLog(String username, String subcategoryName, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
         pathSegments.add("get");
         pathSegments.add(username);
-        pathSegments.add(String.valueOf(subCategoryId));
+        pathSegments.add(subcategoryName);
         HttpUrl url = buildUrl(pathSegments);
 
         Request request = createRequestBuilder(url)
