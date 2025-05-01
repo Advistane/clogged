@@ -438,8 +438,76 @@ public class CloggedPlugin extends Plugin {
 
     private IndexedSprite createSpriteForItem(int itemId) {
         final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
-        final BufferedImage image = ImageUtil.resizeImage(itemManager.getImage(itemComposition.getId()), 18, 15);
-        return ImageUtil.getImageIndexedSprite(image, client);
+        final BufferedImage itemImage = itemManager.getImage(itemComposition.getId());
+        final BufferedImage croppedImage = cropImageToContent(itemImage);
+        final BufferedImage resizedImage = ImageUtil.resizeImage(croppedImage != null ? croppedImage : itemImage, 18, 15);
+
+        return ImageUtil.getImageIndexedSprite(resizedImage, client);
+    }
+
+    // Crops an image to its content while maintaining the aspect ratio
+    private BufferedImage cropImageToContent(BufferedImage src) {
+        int width = src.getWidth();
+        int height = src.getHeight();
+        int border = 1; // Add a border of 1 pixel
+
+        // Step 1: Detect content bounds
+        int top = height, left = width, right = 0, bottom = 0;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int pixel = src.getRGB(x, y);
+                if ((pixel >> 24) != 0x00) { // Not transparent
+                    if (x < left) left = x;
+                    if (x > right) right = x;
+                    if (y < top) top = y;
+                    if (y > bottom) bottom = y;
+                }
+            }
+        }
+
+        if (left > right || top > bottom) {
+            // No visible content
+            return null;
+        }
+
+        // Step 2: Add border
+        left = Math.max(0, left - border);
+        right = Math.min(width - 1, right + border);
+        top = Math.max(0, top - border);
+        bottom = Math.min(height - 1, bottom + border);
+
+        int contentWidth = right - left + 1;
+        int contentHeight = bottom - top + 1;
+
+        // Step 3: Adjust to maintain original aspect ratio
+        float originalAspect = (float) width / height;
+        float contentAspect = (float) contentWidth / contentHeight;
+
+        int newWidth = contentWidth;
+        int newHeight = contentHeight;
+
+        if (contentAspect > originalAspect) {
+            // Too wide — pad height
+            newHeight = Math.round(contentWidth / originalAspect);
+        } else {
+            // Too tall — pad width
+            newWidth = Math.round(contentHeight * originalAspect);
+        }
+
+        // Center the new crop box
+        int cx = left + contentWidth / 2;
+        int cy = top + contentHeight / 2;
+
+        int newLeft = Math.max(0, cx - newWidth / 2);
+        int newTop = Math.max(0, cy - newHeight / 2);
+
+        // Clamp to image size
+        newLeft = Math.min(newLeft, width - newWidth);
+        newTop = Math.min(newTop, height - newHeight);
+
+        // Step 4: Crop and return
+        return src.getSubimage(newLeft, newTop, newWidth, newHeight);
     }
 
     private boolean isSyncEnabled() {
