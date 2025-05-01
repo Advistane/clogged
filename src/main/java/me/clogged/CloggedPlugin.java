@@ -240,10 +240,9 @@ public class CloggedPlugin extends Plugin {
                 String responseBody = response.body().string();
                 List<KCAliasResponse> kcAliases = Arrays.asList(gson.fromJson(responseBody, KCAliasResponse[].class));
                 aliasHelper = new AliasHelper(kcAliases);
-                log.info("Fetched KC aliases successfully");
             } else {
                 // Handle unsuccessful response
-                System.err.println("Failed to fetch KC aliases: " + response.code());
+                log.error("Failed to fetch KC aliases: {}", response.body());
             }
         }
     };
