@@ -238,7 +238,6 @@ public class CloggedPlugin extends Plugin {
         public void onResponse(@NonNull Call call, Response response) throws IOException {
             if (response.isSuccessful() && response.body() != null) {
                 String responseBody = response.body().string();
-                Gson gson = new Gson();
                 List<KCAliasResponse> kcAliases = Arrays.asList(gson.fromJson(responseBody, KCAliasResponse[].class));
                 aliasHelper = new AliasHelper(kcAliases);
                 log.info("Fetched KC aliases successfully");
