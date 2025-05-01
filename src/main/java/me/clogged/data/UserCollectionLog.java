@@ -53,7 +53,7 @@ public class UserCollectionLog {
             throw new IllegalArgumentException("Subcategory ID must be positive.");
         }
         if (kc < 0) {
-            return;
+            kc = -1;
         }
 
         kcs.put(subcategoryId, kc);
