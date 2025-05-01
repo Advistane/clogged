@@ -375,7 +375,9 @@ public class CloggedPlugin extends Plugin {
 
             try {
                 builder.append("<img=").append(loadedCollectionLogIcons.get(item.getItemId())).append(">");
-                addItemQuantity(builder, item.getQuantity(), false);
+                if (!addItemQuantity(builder, item.getQuantity(), false)) {
+                    builder.append(", ");
+                }
 
             } catch (NullPointerException e) {
                 log.warn("Failed to load icon for item ID: {}", item.getItemId());
@@ -386,10 +388,7 @@ public class CloggedPlugin extends Plugin {
             }
         }
 
-        // Remove the last comma and space
-        if (config.displayMethod() == DisplayMethod.TEXT) {
-            builder.setLength(builder.length() - 2);
-        }
+        builder.setLength(builder.length() - 2);
     }
 
     private boolean addItemQuantity(StringBuilder builder, int quantity, boolean leadingSpace) {
