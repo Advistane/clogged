@@ -21,6 +21,7 @@ import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -51,6 +52,7 @@ public class CloggedPlugin extends Plugin {
     private int ticksToWait = 0;
     private int collectionLogScriptFiredTick = -1;
     private boolean collectionLogInterfaceOpenedAndSynced = false;
+    AliasHelper aliasHelper;
 
     @Inject private Client client;
     @Inject private CloggedConfig config;
@@ -65,6 +67,9 @@ public class CloggedPlugin extends Plugin {
     @Override
     protected void startUp() throws Exception {
         chatCommandManager.registerCommandAsync(COLLECTION_LOG_COMMAND_STRING, this::handleChatMessage);
+        if (config.enableLookup()) {
+            cloggedApiClient.getKCAliases(kcAliasesCallback);
+        }
     }
 
     @Override
@@ -123,6 +128,15 @@ public class CloggedPlugin extends Plugin {
         }
     }
 
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event) {
+        if (aliasHelper == null && event.getGroup().equals("clogged")) {
+            if (Objects.equals(event.getKey(), "enableLookup") && config.enableLookup()) {
+                cloggedApiClient.getKCAliases(kcAliasesCallback);
+            }
+        }
+    }
+
     private void recordScriptFiredTick() {
         collectionLogScriptFiredTick = client.getTickCount();
     }
@@ -161,11 +175,11 @@ public class CloggedPlugin extends Plugin {
         } else if (commandArg.equals("help")) {
             clientThread.invoke(this::showHelpMessage);
         } else {
-            handleSubCategoryLookup(chatMessage, commandArg);
+            handleSubcategoryLookup(chatMessage, commandArg);
         }
     }
 
-    private void handleSubCategoryLookup(ChatMessage chatMessage, String commandArg) {
+    private void handleSubcategoryLookup(ChatMessage chatMessage, String commandArg) {
         clientThread.invoke(() -> {
             if (!config.enableLookup()) {
                 showLookupDisabledMessage();
@@ -183,11 +197,11 @@ public class CloggedPlugin extends Plugin {
                 username = client.getLocalPlayer().getName();
             }
 
-            cloggedApiClient.getUserCollectionLog(username, commandArg, createLookupCallback(chatMessage));
+            cloggedApiClient.getUserCollectionLog(username, commandArg, subcategoryLookupCallback(chatMessage));
         });
     }
 
-    private Callback createLookupCallback(ChatMessage chatMessage) {
+    private Callback subcategoryLookupCallback(ChatMessage chatMessage) {
         return new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -213,6 +227,27 @@ public class CloggedPlugin extends Plugin {
             }
         };
     }
+
+    Callback kcAliasesCallback = new Callback() {
+        @Override
+        public void onFailure(@NonNull Call call, IOException e) {
+            log.error("Failed to fetch KC aliases: {}", e.getMessage());
+        }
+
+        @Override
+        public void onResponse(@NonNull Call call, Response response) throws IOException {
+            if (response.isSuccessful() && response.body() != null) {
+                String responseBody = response.body().string();
+                Gson gson = new Gson();
+                List<KCAliasResponse> kcAliases = Arrays.asList(gson.fromJson(responseBody, KCAliasResponse[].class));
+                aliasHelper = new AliasHelper(kcAliases);
+                log.info("Fetched KC aliases successfully");
+            } else {
+                // Handle unsuccessful response
+                System.err.println("Failed to fetch KC aliases: " + response.code());
+            }
+        }
+    };
 
     private void updateChatMessage(ChatMessage chatMessage, String text) {
         chatMessage.getMessageNode().setValue(text);
@@ -542,8 +577,6 @@ public class CloggedPlugin extends Plugin {
         }
     }
 
-
-
     // Since the collection log doesn't separate bosses into their own subcategories, sum the kc of them
     private int getSummedKcForBoss(String boss) {
         switch (boss) {
@@ -577,7 +610,7 @@ public class CloggedPlugin extends Plugin {
     }
 
     private int getSimpleKcForBoss(String boss) {
-        Integer killCount = configManager.getRSProfileConfiguration("killcount", AliasHelper.KCAlias(boss).toLowerCase(), int.class);
+        Integer killCount = configManager.getRSProfileConfiguration("killcount", aliasHelper.getFullNameByAlias(boss), int.class);
         return killCount != null ? killCount : -1;
     }
 }

@@ -42,9 +42,20 @@ public class CloggedApiClient {
 
     public void getUserCollectionLog(String username, String subcategoryName, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
-        pathSegments.add("get");
         pathSegments.add(username);
         pathSegments.add(subcategoryName);
+        HttpUrl url = buildUrl(pathSegments);
+
+        Request request = createRequestBuilder(url)
+                .get()
+                .build();
+
+        apiRequest(request, callback);
+    }
+
+    public void getKCAliases(Callback callback) {
+        List<String> pathSegments = new ArrayList<>();
+        pathSegments.add("kc-aliases");
         HttpUrl url = buildUrl(pathSegments);
 
         Request request = createRequestBuilder(url)
