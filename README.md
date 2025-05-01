@@ -3,14 +3,34 @@ Sync your collection log with Clogged.me and allow other players to view your cl
 
 This was created as a replacement for collectionlog.net (RIP).
 
+# How to Use
+1. Install the "Clogged.me" plugin from the RuneLite plugin hub.
+2. Open the plugin options and configure according to the settings denoted below in the **'Configuration'** section.
+3. Open your collection log interface in-game.
+   1. If you set the "Sync method" to "Manual", you must type `!clog sync` in the chatbox to sync your collection log.
+   2. Otherwise, the plugin will automatically sync your collection log whenever the collection log interface is open.
+   3. Regardless of the method selected, you'll receive a notification in the chatbox when your collection log is synced.
+4. You can now view your collection log (and share it with others) by typing '!clog {collectionLogName}'. This works in public chat, private messages, clan chat, etc.
+   1. For example, typing `!clog barrows` will show your collection log for barrows.
+   2. Or typing `!clog rumors` will show your collection log for hunter rumors.
+   3. Other examples
+      1. `!clog gotr` - Display Gardians of the Rift collection log.
+      2. `!clog skotizo` - Display Skotizo collection log.
+      3. `!clog toa` - Display Tombs of Amascut collection log.
+   4. Any entry in the collection log can be used and shared.
+      
 # Configuration
-![image](https://github.com/user-attachments/assets/75c72411-5c42-4a02-9054-4c39487b6170)
+![image](https://github.com/user-attachments/assets/b95e3dd9-38f4-4e9f-8037-66958b471a2d)
+
 - **Enable sync with Clogged.me**
   - This will enable the synchronization of your ingame collection log with the Clogged.me servers to allow other players to view your log.
 
 - **Enable lookups with Clogged.me**
   - This will allow you to view collection logs from other players.
   - This does not sync your log with Clogged.me and will not allow other players to view your log.
+ 
+- **Show item quantities**
+  - This will display how many of each item has been obtained in the collection log.
 
 - **Sync Method**
     - **Manual**: Must type '!clog sync' with collection log interface open.
