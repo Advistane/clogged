@@ -11,11 +11,15 @@ public class AliasHelper {
 
     public AliasHelper(List<KCAliasResponse> kcAliases) {
         for (KCAliasResponse kcAlias : kcAliases) {
-            aliasMap.put(kcAlias.getAlias().toLowerCase(), kcAlias.getFullName());
+            aliasMap.put(kcAlias.getAlias().toLowerCase(), kcAlias.getFullName().toLowerCase());
         }
     }
 
     public String getFullNameByAlias(String alias) {
-        return aliasMap.get(alias.toLowerCase());
+        if (aliasMap.containsKey(alias.toLowerCase())) {
+            return aliasMap.get(alias.toLowerCase());
+        }
+
+        return alias.toLowerCase();
     }
 }
