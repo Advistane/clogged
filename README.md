@@ -18,9 +18,12 @@ This was created as a replacement for collectionlog.net (RIP).
       2. `!clog skotizo` - Display Skotizo collection log.
       3. `!clog toa` - Display Tombs of Amascut collection log.
    4. Any entry in the collection log can be used and shared.
+5. You can view the items not yet collected for a given clog by using the "missing" modifier (if "Show missing items" is enabled in the plugin config).
+   1. For example, typing `!clog missing gauntlet` will show all the items you have *not* collected for the Gauntlet.
       
 # Configuration
-![image](https://github.com/user-attachments/assets/b95e3dd9-38f4-4e9f-8037-66958b471a2d)
+![image](https://github.com/user-attachments/assets/67db4973-4b90-4a11-982b-75be2262a950)
+
 
 - **Enable sync with Clogged.me**
   - This will enable the synchronization of your ingame collection log with the Clogged.me servers to allow other players to view your log.
@@ -31,6 +34,17 @@ This was created as a replacement for collectionlog.net (RIP).
  
 - **Show item quantities**
   - This will display how many of each item has been obtained in the collection log.
+  - ![image](https://github.com/user-attachments/assets/051caf8e-27f7-4212-9009-aee21425e1ac)
+
+ 
+- **Show clog totals**
+  - This will display the number of items obtained out of the total possible number of items for a given collection log.
+  - ![image](https://github.com/user-attachments/assets/014f4e52-0f9c-4b89-a95f-845124d7b956)
+
+- **Show missing items**
+  - This will display the items that have *not* been obtained for a given collection log.
+  - You can invoke this using the "missing" command modifier. E.g. `!clog gauntlet` vs `!clog missing gauntlet`
+  - ![image](https://github.com/user-attachments/assets/fa2de8b6-5fa3-4a22-bb24-2d4b399071f3)
 
 - **Sync Method**
     - **Manual**: Must type '!clog sync' with collection log interface open.
