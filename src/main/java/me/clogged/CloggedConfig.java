@@ -10,7 +10,7 @@ import net.runelite.client.config.ConfigSection;
 @ConfigGroup("clogged")
 public interface CloggedConfig extends Config
 {
-	String PLUGIN_VERSION = "1.1.0";
+	String PLUGIN_VERSION = "1.1.1";
 
 	@ConfigItem(
 		keyName = "enableSync",
@@ -45,11 +45,31 @@ public interface CloggedConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "showTotal",
+			name = "Show clog totals",
+			description = "If enabled, the total number of items in the collection log will be shown in the collection log message (e.g. 4/7).",
+			position = 4
+	)
+	default boolean showTotal() {
+		return false;
+	}
+
+	@ConfigItem(
+			keyName = "showMissing",
+			name = "Show missing items",
+			description = "If enabled, the '!clog missing ...' command will show the items that are missing in the collection log.",
+			position = 5
+	)
+	default boolean showMissing() {
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "syncMethod",
 		name = "Sync method",
 		description = "Manual: Must type '!clog sync' with collection log interface open.<br>" +
 			"Automatic: Syncs whenever the collection log interface is open (might cause strange behavior for a split second when opening).",
-		position = 4
+		position = 6
 	)
 	default SyncMethod syncMethod()
 	{
@@ -61,7 +81,7 @@ public interface CloggedConfig extends Config
 			name = "Display method",
 			description = "Text: Collection log items will be displayed as text.<br>" +
 					"Icons: Collection log items will be displayed as icons.",
-			position = 5
+			position = 7
 	)
 
 	default DisplayMethod displayMethod()
@@ -72,7 +92,7 @@ public interface CloggedConfig extends Config
 	@ConfigSection(
 			name = "Proxy Settings",
 			description = "Proxy settings for Clogged.me API",
-			position = 6,
+			position = 8,
 			closedByDefault = true
 	)
 	String proxySettingsSection = "proxySettingsSection";
@@ -84,7 +104,7 @@ public interface CloggedConfig extends Config
 					"With that being said, enabling this will use the specified proxy settings to connect to the Clogged.me API.<br>" +
 					"Only enable this if you know what you're doing.",
 			section = proxySettingsSection,
-			position = 7
+			position = 9
 	)
 	default boolean proxyEnabled()
 	{
@@ -96,7 +116,7 @@ public interface CloggedConfig extends Config
 			name = "Proxy Host",
 			description = "The host of the proxy server.",
 			section = proxySettingsSection,
-			position = 8
+			position = 10
 	)
 	default String proxyHost()
 	{
@@ -108,7 +128,7 @@ public interface CloggedConfig extends Config
 			name = "Proxy Port",
 			description = "The port of the proxy server.",
 			section = proxySettingsSection,
-			position = 9
+			position = 11
 	)
 	default int proxyPort()
 	{
@@ -120,7 +140,7 @@ public interface CloggedConfig extends Config
 			name = "Proxy Username",
 			description = "The username for the proxy server.",
 			section = proxySettingsSection,
-			position = 10
+			position = 12
 	)
 	default String proxyUsername()
 	{
@@ -132,7 +152,7 @@ public interface CloggedConfig extends Config
 			name = "Proxy Password",
 			description = "The password for the proxy server.",
 			section = proxySettingsSection,
-			position = 11
+			position = 13
 	)
 	default String proxyPassword()
 	{

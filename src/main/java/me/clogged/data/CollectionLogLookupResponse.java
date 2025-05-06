@@ -7,5 +7,6 @@ import java.util.List;
 public class CollectionLogLookupResponse {
     private int kc;
     private String subcategoryName;
+    private int total;
     private List<CollectionLogItem> items;
 }

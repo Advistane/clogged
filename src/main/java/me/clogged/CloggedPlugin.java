@@ -46,6 +46,8 @@ public class CloggedPlugin extends Plugin {
     private static final int CLOG_SEARCH_WIDGET_ID = 40697932;
     private static final int COLLECTION_LOG_SCRIPT_ID = 4100;
     private static final int TICKS_TO_WAIT_AFTER_LOAD = 2;
+    private static final String MISSING_KEYWORD = "missing";
+
     private final UserCollectionLog userCollectionLog = new UserCollectionLog();
     private final Map<Integer, Integer> loadedCollectionLogIcons = new HashMap<>();
 
@@ -169,13 +171,12 @@ public class CloggedPlugin extends Plugin {
         }
 
         String commandArg = message.substring(COLLECTION_LOG_COMMAND_STRING.length() + 1);
-
-        if (commandArg.equals("sync")) {
+        if (commandArg.equals("sync") && Objects.equals(Text.sanitize(chatMessage.getName()), client.getLocalPlayer().getName())) {
             clientThread.invoke(this::updateUserCollectionLog);
         } else if (commandArg.equals("help")) {
             clientThread.invoke(this::showHelpMessage);
         } else {
-            handleSubcategoryLookup(chatMessage, commandArg);
+            handleSubcategoryLookup(chatMessage, commandArg.trim());
         }
     }
 
@@ -197,11 +198,26 @@ public class CloggedPlugin extends Plugin {
                 username = client.getLocalPlayer().getName();
             }
 
-            cloggedApiClient.getUserCollectionLog(username, commandArg, subcategoryLookupCallback(chatMessage));
+            // Check if the user wants to see missing items or not
+            boolean isMissingSearch = isMissingSearch(commandArg);
+            String bossName = commandArg;
+            if (isMissingSearch) {
+                if (!config.showMissing()) {
+                    return;
+                }
+
+                bossName = commandArg.substring(MISSING_KEYWORD.length()).trim();
+            }
+
+            cloggedApiClient.getUserCollectionLog(username, bossName, isMissingSearch, subcategoryLookupCallback(chatMessage, isMissingSearch));
         });
     }
 
-    private Callback subcategoryLookupCallback(ChatMessage chatMessage) {
+    private static boolean isMissingSearch(String commandArg) {
+        return commandArg.toLowerCase().startsWith(MISSING_KEYWORD + " ");
+    }
+
+    private Callback subcategoryLookupCallback(ChatMessage chatMessage, boolean isMissingSearch) {
         return new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -221,7 +237,7 @@ public class CloggedPlugin extends Plugin {
                 CollectionLogLookupResponse lookupResponse = gson.fromJson(responseBody, CollectionLogLookupResponse.class);
 
                 clientThread.invoke(() -> {
-                    String replacementMessage = buildReplacementMessage(lookupResponse);
+                    String replacementMessage = buildReplacementMessage(lookupResponse, isMissingSearch, lookupResponse.getTotal());
                     updateChatMessage(chatMessage, replacementMessage);
                 });
             }
@@ -367,7 +383,7 @@ public class CloggedPlugin extends Plugin {
                 .build());
     }
 
-    private String buildReplacementMessage(CollectionLogLookupResponse response) {
+    private String buildReplacementMessage(CollectionLogLookupResponse response, boolean isMissingSearch, int total) {
         int kc = response.getKc();
         String subcategoryName = response.getSubcategoryName();
         List<CollectionLogItem> items = response.getItems();
@@ -379,10 +395,22 @@ public class CloggedPlugin extends Plugin {
         StringBuilder messageBuilder = new StringBuilder();
         messageBuilder.append(subcategoryName);
 
-        if (kc > 0) {
-            messageBuilder.append(" (").append(kc).append(" KC)");
+        if (kc > 0 || (config.showMissing() && isMissingSearch)) {
+            messageBuilder.append(" (");
+            if (kc > 0) {
+                messageBuilder.append(kc).append(" KC");
+                if (config.showMissing() && isMissingSearch) {
+                    messageBuilder.append(", Missing");
+                } else if (config.showTotal() && !isMissingSearch) {
+                    messageBuilder.append(", ").append(items.size()).append("/").append(total);
+                }
+            } else { // kc is 0, but we are showing missing for a missing search
+                messageBuilder.append("Missing");
+            }
+            messageBuilder.append("): ");
+        } else {
+            messageBuilder.append(": ");
         }
-        messageBuilder.append(": ");
 
         if (config.displayMethod() == DisplayMethod.ICON) {
             loadClogIcons(items);
@@ -429,7 +457,7 @@ public class CloggedPlugin extends Plugin {
             if (leadingSpace) {
                 builder.append(" ");
             }
-            builder.append("(x").append(quantity).append("), ");
+            builder.append("x").append(quantity).append(", ");
             return true;
         }
         return false;
@@ -599,7 +627,7 @@ public class CloggedPlugin extends Plugin {
             case "The Nightmare":
                 return getSimpleKcForBoss("Nightmare") + getSimpleKcForBoss("Phosani's Nightmare");
             case "Theatre of Blood":
-                return getSimpleKcForBoss("Theatre of Blood") + getSimpleKcForBoss("Theatre of Blood Hard Mode") + getSimpleKcForBoss("Theatre of Blood Entry Mode");
+                return getSimpleKcForBoss("Theatre of Blood") + getSimpleKcForBoss("Theatre of Blood Hard Mode");
             case "Tombs of Amascut":
                 return getSimpleKcForBoss("Tombs of Amascut") + getSimpleKcForBoss("Tombs of Amascut Entry Mode") + getSimpleKcForBoss("Tombs of Amascut Expert Mode");
             default:

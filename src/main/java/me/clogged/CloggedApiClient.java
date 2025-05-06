@@ -40,11 +40,16 @@ public class CloggedApiClient {
         }
     }
 
-    public void getUserCollectionLog(String username, String subcategoryName, Callback callback) {
+    public void getUserCollectionLog(String username, String subcategoryName, Boolean checkForMissing, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
         pathSegments.add(username);
         pathSegments.add(subcategoryName);
         HttpUrl url = buildUrl(pathSegments);
+        if (checkForMissing) {
+            url = url.newBuilder()
+                    .addQueryParameter("mode", "missing")
+                    .build();
+        }
 
         Request request = createRequestBuilder(url)
                 .get()
