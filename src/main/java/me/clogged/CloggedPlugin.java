@@ -25,6 +25,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
 
@@ -33,6 +34,7 @@ import okhttp3.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -264,7 +266,8 @@ public class CloggedPlugin extends Plugin {
     };
 
     private void updateChatMessage(ChatMessage chatMessage, String text) {
-        chatMessage.getMessageNode().setValue(text);
+        String message = getFormattedMessage(text);
+        chatMessage.getMessageNode().setValue(message);
         client.refreshChat();
     }
 
@@ -297,6 +300,7 @@ public class CloggedPlugin extends Plugin {
         Map<String, Object> userDataMap = new HashMap<>();
         userDataMap.put("username", client.getLocalPlayer().getName());
         userDataMap.put("accountHash", client.getAccountHash());
+        userDataMap.put("profileVisible", config.profileVisibility());
         userDataMap.put("collectedItems", userCollectionLog.getItemJson());
         userDataMap.put("subcategories", userCollectionLog.getSubcategoryJson());
         return gson.toJson(userDataMap);
@@ -320,66 +324,82 @@ public class CloggedPlugin extends Plugin {
 
     // UI and Message Helpers
 
+    private String getFormattedMessage(String message) {
+        if (!config.enableCustomColor()) {
+            return message;
+        }
+
+        return ColorUtil.wrapWithColorTag(message, config.textColor());
+    }
     private void showHelpMessage() {
+        String message = getFormattedMessage("Ensure all plugin options are configured to your liking and open the collection log interface to sync. If method is set to manual, you must type '!clog sync' with the interface open.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Ensure all plugin options are configured to your liking and open the collection log interface to sync. If method is set to manual, you must type '!clog sync' with the interface open.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showSyncingDisabledMessage() {
+        String message = getFormattedMessage("Clogged: Syncing is disabled in the plugin options.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Syncing is disabled in the plugin options.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showLookupDisabledMessage() {
+        String message = getFormattedMessage("Clogged: Lookups are disabled in the plugin options.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Lookups are disabled in the plugin options.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showProxySettingsIncompleteMessage() {
+        String message = getFormattedMessage("Clogged: Proxy settings are incomplete. Please check the plugin settings.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Use proxy is enabled but proxy settings are incomplete. Please check the plugin settings.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showCollectionLogClosedMessage() {
+        String message = getFormattedMessage("Clogged: The collection log interface must be open to sync.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: The collection log interface must be open to sync.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showSyncingMessage() {
+        String message = getFormattedMessage("Clogged: Syncing collection log...");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Syncing collection log...")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showSyncSuccessMessage() {
+        String message = getFormattedMessage("Clogged: Collection log synced successfully.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Collection log synced successfully.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showSyncFailedMessage() {
+        String message = getFormattedMessage("Clogged: Failed to sync collection log. Try again or reach out to Advistane on Discord.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Failed to sync collection log. Try again or reach out to Advistane on Discord.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
     private void showLookupFailedMessage() {
+        String message = getFormattedMessage("Clogged: Failed to lookup collection log. Try again or reach out to Advistane on Discord.");
         chatMessageManager.queue(QueuedMessage.builder()
                 .type(ChatMessageType.GAMEMESSAGE)
-                .runeLiteFormattedMessage("Clogged: Failed to lookup collection log. Try again or reach out to Advistane on Discord.")
+                .runeLiteFormattedMessage(message)
                 .build());
     }
 
