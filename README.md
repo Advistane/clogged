@@ -1,5 +1,5 @@
-# Clogged.Me
-Sync your collection log with Clogged.me and allow other players to view your clogs.
+# [Clogged.me](https://Clogged.me)
+Sync your collection log with [Clogged.me](https://Clogged.me) and allow other players to view your clogs.
 
 This was created as a replacement for collectionlog.net (RIP).
 
@@ -22,8 +22,9 @@ This was created as a replacement for collectionlog.net (RIP).
    1. For example, typing `!clog missing gauntlet` will show all the items you have *not* collected for the Gauntlet.
       
 # Configuration
-![image](https://github.com/user-attachments/assets/67db4973-4b90-4a11-982b-75be2262a950)
+![image](https://github.com/user-attachments/assets/a39416de-51c5-4388-a74c-de206181ddef)
 
+## General Settings
 
 - **Enable sync with Clogged.me**
   - This will enable the synchronization of your ingame collection log with the Clogged.me servers to allow other players to view your log.
@@ -32,6 +33,21 @@ This was created as a replacement for collectionlog.net (RIP).
   - This will allow you to view collection logs from other players.
   - This does not sync your log with Clogged.me and will not allow other players to view your log.
  
+- **Make profile visible on Clogged.me**
+  - This will allow your collection log to be viewed by users on the [Clogged.me](https://Clogged.me) website.
+  - After changing this, you must sync your collection log for changes to take effect.
+ 
+- **Sync Method**
+    - **Manual**: Must type '!clog sync' with collection log interface open.
+    - **Automatic**: Syncs whenever the collection log interface is open (might cause strange behavior for a split second when opening).
+    - The collection log interface must be open to sync (you do not have to visit each page however).
+ 
+## Display Settings
+
+ - **Display Method**
+    - **Text**: Collection log items will be displayed as text in the chatbox.
+    - **Icons**: Collection log items will be displayed as icons.
+  
 - **Show item quantities**
   - This will display how many of each item has been obtained in the collection log.
   - ![image](https://github.com/user-attachments/assets/051caf8e-27f7-4212-9009-aee21425e1ac)
@@ -45,20 +61,16 @@ This was created as a replacement for collectionlog.net (RIP).
   - This will display the items that have *not* been obtained for a given collection log.
   - You can invoke this using the "missing" command modifier. E.g. `!clog gauntlet` vs `!clog missing gauntlet`
   - ![image](https://github.com/user-attachments/assets/fa2de8b6-5fa3-4a22-bb24-2d4b399071f3)
-
-- **Sync Method**
-    - **Manual**: Must type '!clog sync' with collection log interface open.
-    - **Automatic**: Syncs whenever the collection log interface is open (might cause strange behavior for a split second when opening).
-    - The collection log interface must be open to sync (you do not have to visit each page however).
-
-- **Display Method**
-    - **Text**: Collection log items will be displayed as text in the chatbox.
-    - **Icons**: Collection log items will be displayed as icons.
-
-- **Proxy Settings**
-    - Clogged.me does not store nor associate your IP address with your account or client in any way.
-    - With that being said, enabling this will use the specified proxy settings to connect to the Clogged.me API.
-    - Only enable these settings if you know what you're doing.
+ 
+- **Enable custom chat message color**
+  - If enabled, all messages sent by the plugin will be of this color.
+  - ![image](https://github.com/user-attachments/assets/dda7f21c-0b30-4029-9a74-6247c12ad4f2)
+  - ![image](https://github.com/user-attachments/assets/cab0ae7c-ac48-45a9-bff5-7d03765cc2bd)
+ 
+## Proxy Settings
+ - Clogged.me does not store nor associate your IP address with your account or client in any way.
+ - With that being said, enabling this will use the specified proxy settings to connect to the Clogged.me API.
+ - Only enable these settings if you know what you're doing.
  
 # Data Handling and Privacy
 
