@@ -1,6 +1,7 @@
 package me.clogged;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 
 import javax.inject.Inject;
@@ -177,9 +178,51 @@ public class CloggedPlugin extends Plugin {
             clientThread.invoke(this::updateUserCollectionLog);
         } else if (commandArg.equals("help")) {
             clientThread.invoke(this::showHelpMessage);
+        } else if (commandArg.startsWith("join")) {
+            handleGroupCommand(chatMessage, commandArg.trim(), true);
+        } else if (commandArg.startsWith("leave")) {
+            handleGroupCommand(chatMessage, commandArg.trim(), false);
         } else {
             handleSubcategoryLookup(chatMessage, commandArg.trim());
         }
+    }
+
+    private void handleGroupCommand(ChatMessage chatMessage, String commandArg, boolean join) {
+        clientThread.invoke(() -> {
+            String username = Text.sanitize(chatMessage.getName());
+            if (!username.equalsIgnoreCase(client.getLocalPlayer().getName())) {
+                return;
+            }
+
+            if (!config.enableSync()) {
+                showSyncingDisabledMessage();
+                return;
+            }
+
+            if (config.proxyEnabled() && (config.proxyHost() == null || config.proxyHost().isEmpty() || config.proxyPort() <= 0)) {
+                showProxySettingsIncompleteMessage();
+                return;
+            }
+
+            if (join && !config.profileVisibility()) {
+                showProfileVisibilityDisabledMessage();
+                return;
+            }
+
+            String[] parts = commandArg.split(" ", 2);
+            if (parts.length > 1) {
+                String groupName = parts[1].trim();
+                if (!groupName.isEmpty()) {
+                    JsonObject jsonObject = new JsonObject();
+                    jsonObject.addProperty("accountHash", client.getAccountHash());
+                    cloggedApiClient.handleGroup(jsonObject.toString(), groupName, join, handleGroupCallback(chatMessage));
+                } else {
+                    showIncorrectGroupCommandMessage();
+                }
+            } else {
+                showIncorrectGroupCommandMessage();
+            }
+        });
     }
 
     private void handleSubcategoryLookup(ChatMessage chatMessage, String commandArg) {
@@ -217,6 +260,30 @@ public class CloggedPlugin extends Plugin {
 
     private static boolean isMissingSearch(String commandArg) {
         return commandArg.toLowerCase().startsWith(MISSING_KEYWORD + " ");
+    }
+
+    private Callback handleGroupCallback(ChatMessage chatMessage) {
+        return new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                log.error("Failed to join group: {}", e.getMessage());
+                showLookupFailedMessage();
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                assert response.body() != null;
+                String responseBody = response.body().string();
+                GroupResponse groupResponse = gson.fromJson(responseBody, GroupResponse.class);
+
+                clientThread.invoke(() -> {
+                    String message = groupResponse.getMessage();
+                    updateChatMessage(chatMessage, message);
+                });
+
+                response.close();
+            }
+        };
     }
 
     private Callback subcategoryLookupCallback(ChatMessage chatMessage, boolean isMissingSearch) {
@@ -331,6 +398,23 @@ public class CloggedPlugin extends Plugin {
 
         return ColorUtil.wrapWithColorTag(message, config.textColor());
     }
+
+    private void showIncorrectGroupCommandMessage() {
+        String message = getFormattedMessage("Clogged: Incorrect command. Please use '!clog join group_name' to join a group.");
+        chatMessageManager.queue(QueuedMessage.builder()
+                .type(ChatMessageType.GAMEMESSAGE)
+                .runeLiteFormattedMessage(message)
+                .build());
+    }
+
+    private void showProfileVisibilityDisabledMessage() {
+        String message = getFormattedMessage("Clogged: 'Make profile visible on Clogged.me' must be enabled to join a group.");
+        chatMessageManager.queue(QueuedMessage.builder()
+                .type(ChatMessageType.GAMEMESSAGE)
+                .runeLiteFormattedMessage(message)
+                .build());
+    }
+
     private void showHelpMessage() {
         String message = getFormattedMessage("Ensure all plugin options are configured to your liking and open the collection log interface to sync. If method is set to manual, you must type '!clog sync' with the interface open.");
         chatMessageManager.queue(QueuedMessage.builder()

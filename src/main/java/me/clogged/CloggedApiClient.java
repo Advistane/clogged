@@ -29,7 +29,7 @@ public class CloggedApiClient {
         try {
             RequestBody requestBody = RequestBody.create(COLLECTION_LOG_MEDIA_TYPE, requestBodyJson);
             Request request = createRequestBuilder(url)
-                    .post(requestBody)
+                    .put(requestBody)
                     .build();
 
             apiRequest(request, callback);
@@ -42,6 +42,7 @@ public class CloggedApiClient {
 
     public void getUserCollectionLog(String username, String subcategoryName, Boolean checkForMissing, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
+        pathSegments.add("users");
         pathSegments.add(username);
         pathSegments.add(subcategoryName);
         HttpUrl url = buildUrl(pathSegments);
@@ -70,6 +71,31 @@ public class CloggedApiClient {
         apiRequest(request, callback);
     }
 
+public void handleGroup(String requestBodyJson, String groupName, boolean join, Callback callback) {
+        if (requestBodyJson == null || groupName == null || groupName.isEmpty() || requestBodyJson.isEmpty()) {
+            throw new IllegalArgumentException("Account hash and group name cannot be null or empty");
+        }
+
+        List<String> pathSegments = new ArrayList<>();
+        pathSegments.add("groups");
+        pathSegments.add(groupName);
+        HttpUrl url = buildUrl(pathSegments);
+
+        RequestBody requestBody = RequestBody.create(COLLECTION_LOG_MEDIA_TYPE, requestBodyJson);
+
+        Request request;
+        if (join) {
+            request = createRequestBuilder(url)
+                    .post(requestBody)
+                    .build();
+        } else {
+            request = createRequestBuilder(url)
+                    .delete(requestBody)
+                    .build();
+        }
+
+        apiRequest(request, callback);
+    }
 
     private Request.Builder createRequestBuilder(HttpUrl url)
     {
@@ -120,8 +146,7 @@ public class CloggedApiClient {
         return new HttpUrl.Builder()
                 .scheme("https")
                 .host(COLLECTION_LOG_API_HOST)
-                .addPathSegment("api")
-                .addPathSegment("clog")
+                .addPathSegment("users")
                 .addPathSegment("update")
                 .build();
     }
@@ -129,9 +154,7 @@ public class CloggedApiClient {
     private HttpUrl buildUrl(List<String> pathSegments) {
         HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
                 .scheme("https")
-                .host(COLLECTION_LOG_API_HOST)
-                .addPathSegment("api")
-                .addPathSegment("clog");
+                .host(COLLECTION_LOG_API_HOST);
 
         for (String segment : pathSegments) {
             urlBuilder.addPathSegment(segment);
