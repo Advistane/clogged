@@ -33,16 +33,17 @@ This was created as a replacement for collectionlog.net (RIP).
 ## General Settings
 
 - **Enable sync with Clogged.me**
-  - This will enable the synchronization of your ingame collection log with the Clogged.me servers to allow other players to view your log.
+  - This will enable the synchronization of your in-game collection log with the Clogged.me servers to allow other players to see your clog when you send the `!clog <clogName>` command.
 
 - **Enable lookups with Clogged.me**
   - This will allow you to view collection logs from other players.
   - This does not sync your log with Clogged.me and will not allow other players to view your log.
  
-- **Make profile public on Clogged.me**
+- **Make clog public on Clogged.me**
   - This will allow your collection log to be viewed by users on the [Clogged.me](https://Clogged.me) website.
   - This will also allow other players in-game to view your collection log with the `!clog "username" <clogName>` command.
   - After changing this, you must sync your collection log for changes to take effect.
+  - **Note: This is not required if you just want to share your own collection log. This is only required to be visible on the Clogged.me website and viewable by other players in-game with the `!clog "your_username" <clogName>` command.**
  
 - **Sync Method**
     - **Manual**: Must type '!clog sync' with collection log interface open.
