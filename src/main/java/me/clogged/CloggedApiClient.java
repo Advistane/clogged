@@ -40,7 +40,7 @@ public class CloggedApiClient {
         }
     }
 
-    public void getUserCollectionLog(String username, String subcategoryName, Boolean checkForMissing, Callback callback) {
+    public void getUserCollectionLog(String username, String subcategoryName, Boolean checkForMissing, Boolean isOtherLookup, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
         pathSegments.add("users");
         pathSegments.add(username);
@@ -49,6 +49,11 @@ public class CloggedApiClient {
         if (checkForMissing) {
             url = url.newBuilder()
                     .addQueryParameter("mode", "missing")
+                    .build();
+        }
+        if (isOtherLookup) {
+            url = url.newBuilder()
+                    .addQueryParameter("other", "true")
                     .build();
         }
 

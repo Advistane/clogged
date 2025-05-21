@@ -38,8 +38,9 @@ public interface CloggedConfig extends Config
 
 	@ConfigItem(
 		keyName = "profileVisibility",
-		name = "Make profile visible on Clogged.me",
-		description = "If enabled, your profile will be publicly viewable on the Clogged.me website.",
+		name = "Make profile public on Clogged.me",
+		description = "If enabled, your profile will be publicly viewable on the Clogged.me website and you will be able to join groups.<br>" +
+				"This will also allow other players to view your collection log in-game with the '!clog <boss> \"username\"' command.<br>",
 		position = 3
 	)
 	default boolean profileVisibility()

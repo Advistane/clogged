@@ -36,6 +36,8 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -226,7 +228,7 @@ public class CloggedPlugin extends Plugin {
     }
 
     private void handleSubcategoryLookup(ChatMessage chatMessage, String commandArg) {
-        clientThread.invoke(() -> {
+        clientThread.invokeLater(() -> {
             if (!config.enableLookup()) {
                 showLookupDisabledMessage();
                 return;
@@ -237,29 +239,49 @@ public class CloggedPlugin extends Plugin {
                 return;
             }
 
+            boolean isOtherLookup = false;
             String username = Text.sanitize(chatMessage.getName());
+            String query = commandArg;
+
             if (chatMessage.getType().equals(ChatMessageType.PRIVATECHATOUT))
             {
                 username = client.getLocalPlayer().getName();
             }
 
+            String otherPlayerName = getStringBetweenQuotes(query);
+            if (otherPlayerName != null) {
+                username = Text.sanitize(otherPlayerName);
+                isOtherLookup = true;
+                query = query.replace("\"" + otherPlayerName + "\"", "").trim();
+            }
+
             // Check if the user wants to see missing items or not
-            boolean isMissingSearch = isMissingSearch(commandArg);
-            String bossName = commandArg;
+            boolean isMissingSearch = isMissingSearch(query);
+            String bossName = query;
             if (isMissingSearch) {
                 if (!config.showMissing()) {
                     return;
                 }
 
-                bossName = commandArg.substring(MISSING_KEYWORD.length()).trim();
+                bossName = query.substring(MISSING_KEYWORD.length()).trim();
             }
 
-            cloggedApiClient.getUserCollectionLog(username, bossName, isMissingSearch, subcategoryLookupCallback(chatMessage, isMissingSearch));
+            cloggedApiClient.getUserCollectionLog(username, bossName, isMissingSearch, isOtherLookup, subcategoryLookupCallback(chatMessage, isMissingSearch, isOtherLookup));
         });
     }
 
     private static boolean isMissingSearch(String commandArg) {
         return commandArg.toLowerCase().startsWith(MISSING_KEYWORD + " ");
+    }
+
+    // Check if the command argument contains a string between quotes (a username to lookup)
+    public String getStringBetweenQuotes(String commandArg) {
+        Pattern pattern = Pattern.compile("\"([^\"]*)\"");
+        Matcher matcher = pattern.matcher(commandArg);
+        if (matcher.find()) {
+            return matcher.group(1); // Return the string inside the quotes
+        }
+        return null; // Return null if no match is found
     }
 
     private Callback handleGroupCallback(ChatMessage chatMessage) {
@@ -286,7 +308,7 @@ public class CloggedPlugin extends Plugin {
         };
     }
 
-    private Callback subcategoryLookupCallback(ChatMessage chatMessage, boolean isMissingSearch) {
+    private Callback subcategoryLookupCallback(ChatMessage chatMessage, boolean isMissingSearch, boolean isOtherLookup) {
         return new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -296,18 +318,30 @@ public class CloggedPlugin extends Plugin {
 
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                assert response.body() != null;
+                String responseBody = response.body().string();
+                if (response.code() == 404) {
+                    boolean isOriginalSender = chatMessage.getType().equals(ChatMessageType.PRIVATECHATOUT) || Objects.equals(Text.sanitize(chatMessage.getName()), client.getLocalPlayer().getName());
+                    if (isOriginalSender) {
+                        clientThread.invoke(() -> {
+                            updateChatMessage(chatMessage, responseBody);
+                        });
+                    }
+                    return;
+                }
+
                 if (!response.isSuccessful()) {
                     response.close();
                     return;
                 }
 
-                assert response.body() != null;
-                String responseBody = response.body().string();
                 CollectionLogLookupResponse lookupResponse = gson.fromJson(responseBody, CollectionLogLookupResponse.class);
 
                 clientThread.invoke(() -> {
-                    String replacementMessage = buildReplacementMessage(lookupResponse, isMissingSearch, lookupResponse.getTotal());
-                    updateChatMessage(chatMessage, replacementMessage);
+                    String replacementMessage = buildReplacementMessage(lookupResponse, isMissingSearch, isOtherLookup, lookupResponse.getTotal());
+                    if (replacementMessage != null) {
+                        updateChatMessage(chatMessage, replacementMessage);
+                    }
                 });
             }
         };
@@ -487,16 +521,20 @@ public class CloggedPlugin extends Plugin {
                 .build());
     }
 
-    private String buildReplacementMessage(CollectionLogLookupResponse response, boolean isMissingSearch, int total) {
+    private String buildReplacementMessage(CollectionLogLookupResponse response, boolean isMissingSearch, boolean isOtherLookup, int total) {
         int kc = response.getKc();
         String subcategoryName = response.getSubcategoryName();
         List<CollectionLogItem> items = response.getItems();
 
         if (items.isEmpty()) {
-            return "No items found for input";
+            return null;
         }
 
         StringBuilder messageBuilder = new StringBuilder();
+        if (isOtherLookup) {
+            messageBuilder.append(response.getUsername()).append(" - ");
+        }
+
         messageBuilder.append(subcategoryName);
 
         if (kc > 0 || (config.showMissing() && isMissingSearch)) {

@@ -8,5 +8,6 @@ public class CollectionLogLookupResponse {
     private int kc;
     private String subcategoryName;
     private int total;
+    private String username;
     private List<CollectionLogItem> items;
 }
