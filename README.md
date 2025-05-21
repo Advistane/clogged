@@ -10,19 +10,25 @@ This was created as a replacement for collectionlog.net (RIP).
    1. If you set the "Sync method" to "Manual", you must type `!clog sync` in the chatbox to sync your collection log.
    2. Otherwise, the plugin will automatically sync your collection log whenever the collection log interface is open.
    3. Regardless of the method selected, you'll receive a notification in the chatbox when your collection log is synced.
-4. You can now view your collection log (and share it with others) by typing '!clog {collectionLogName}'. This works in public chat, private messages, clan chat, etc.
-   1. For example, typing `!clog barrows` will show your collection log for barrows.
-   2. Or typing `!clog rumors` will show your collection log for hunter rumors.
-   3. Other examples
-      1. `!clog gotr` - Display Gardians of the Rift collection log.
-      2. `!clog skotizo` - Display Skotizo collection log.
-      3. `!clog toa` - Display Tombs of Amascut collection log.
-   4. Any entry in the collection log can be used and shared.
-5. You can view the items not yet collected for a given clog by using the "missing" modifier (if "Show missing items" is enabled in the plugin config).
-   1. For example, typing `!clog missing gauntlet` will show all the items you have *not* collected for the Gauntlet.
+4. You can now view your collection log (and share it with others) by using any of the commands below (in the **Available Commands** section). This works in public chat, private messages, clan chat, etc.
+  
+# Available Commands
+   - `!clog sync`: Syncs your collection log if "sync method" is set to manual. The collection log interface must be open for this to work.
+   - `!clog <clogName>`: Look up your collection log for a given clog.
+      - For example: `!clog barrows`, `!clog slayer`, or `!clog toa`
+   - `!clog missing <clogName>`: Shows all items _not_ obtained for a given clog.
+      - For example: `!clog missing barrows` will show you all the items in the Barrows collection log you have not obtained.
+   - `!clog "username" <clogName>` or `!clog <clogName> "username"`: Look up another player's collection log.
+      - **Note: The player must have a public profile to view their logs.**
+      - For example: `!clog "zezima" moons` will look up Zezima's Moons of Peril collection log if they have a public profile. The username must surrounded by double quotes.
+   - `!clog join <groupName>`: Join the provided group. Groups can be created/managed on the [Clogged.me](https://Clogged.me) website.
+      - Your ability to join is determined by the group admins. If the group is set to "Public", you will join automatically. If it's set to "Closed", you will not be able to join. Otherwise, you have to be approved by a group admin to join.
+      - For example: `!clog join LostAllLives` will attempt to join the "LostAllLives" group. The group admin, `Mr. Mammal`, will have to approve your request to join if it's not set to public.
+   - `!clog leave <groupName>`: Leaves the provided group.
+      - For example: `!clog leave LostAllLives` will atempt to leave the "LostAllLives" group.
       
 # Configuration
-![image](https://github.com/user-attachments/assets/a39416de-51c5-4388-a74c-de206181ddef)
+![image](https://github.com/user-attachments/assets/8c664108-c5b6-4ae4-b711-91e422fe847a)
 
 ## General Settings
 
@@ -33,8 +39,9 @@ This was created as a replacement for collectionlog.net (RIP).
   - This will allow you to view collection logs from other players.
   - This does not sync your log with Clogged.me and will not allow other players to view your log.
  
-- **Make profile visible on Clogged.me**
+- **Make profile public on Clogged.me**
   - This will allow your collection log to be viewed by users on the [Clogged.me](https://Clogged.me) website.
+  - This will also allow other players in-game to view your collection log with the `!clog "username" <clogName>` command.
   - After changing this, you must sync your collection log for changes to take effect.
  
 - **Sync Method**
