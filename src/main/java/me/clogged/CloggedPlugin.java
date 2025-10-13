@@ -21,6 +21,7 @@ import net.runelite.client.chat.ChatCommandManager;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.RuneScapeProfileType;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
@@ -266,7 +267,9 @@ public class CloggedPlugin extends Plugin {
                 bossName = query.substring(MISSING_KEYWORD.length()).trim();
             }
 
-            cloggedApiClient.getUserCollectionLog(username, bossName, isMissingSearch, isOtherLookup, subcategoryLookupCallback(chatMessage, isMissingSearch, isOtherLookup));
+            String profileType = RuneScapeProfileType.getCurrent(client).name();
+
+            cloggedApiClient.getUserCollectionLog(username, profileType, bossName, isMissingSearch, isOtherLookup, subcategoryLookupCallback(chatMessage, isMissingSearch, isOtherLookup));
         });
     }
 
@@ -401,6 +404,7 @@ public class CloggedPlugin extends Plugin {
         Map<String, Object> userDataMap = new HashMap<>();
         userDataMap.put("username", client.getLocalPlayer().getName());
         userDataMap.put("accountHash", client.getAccountHash());
+        userDataMap.put("gameMode", RuneScapeProfileType.getCurrent(client).name());
         userDataMap.put("profileVisible", config.profileVisibility());
         userDataMap.put("collectedItems", userCollectionLog.getItemJson());
         userDataMap.put("subcategories", userCollectionLog.getSubcategoryJson());
@@ -726,6 +730,7 @@ public class CloggedPlugin extends Plugin {
                 "other", 2107
         );
     }
+    
     private void setSubcategoryKc(int subcategoryId) {
         StructComposition subcategoryStruct = client.getStructComposition(subcategoryId);
         String subcategoryName = subcategoryStruct.getStringValue(689);
@@ -778,6 +783,10 @@ public class CloggedPlugin extends Plugin {
     }
 
     private int getSimpleKcForBoss(String boss) {
+        if (aliasHelper == null && config.enableLookup()) {
+            cloggedApiClient.getKCAliases(kcAliasesCallback);
+        }
+
         Integer killCount = configManager.getRSProfileConfiguration("killcount", aliasHelper.getFullNameByAlias(boss), int.class);
         return killCount != null ? killCount : -1;
     }

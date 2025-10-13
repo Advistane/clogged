@@ -12,7 +12,7 @@ import java.awt.Color;
 @ConfigGroup("clogged")
 public interface CloggedConfig extends Config
 {
-	String PLUGIN_VERSION = "1.1.2";
+	String PLUGIN_VERSION = "1.2.0";
 
 	@ConfigItem(
 		keyName = "enableSync",

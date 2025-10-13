@@ -52,6 +52,7 @@ public class UserCollectionLog {
         if (subcategoryId <= 0) {
             throw new IllegalArgumentException("Subcategory ID must be positive.");
         }
+
         if (kc < 0) {
             kc = -1;
         }

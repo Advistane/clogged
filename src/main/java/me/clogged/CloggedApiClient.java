@@ -40,20 +40,30 @@ public class CloggedApiClient {
         }
     }
 
-    public void getUserCollectionLog(String username, String subcategoryName, Boolean checkForMissing, Boolean isOtherLookup, Callback callback) {
+    public void getUserCollectionLog(String username, String gameMode, String subcategoryName, Boolean checkForMissing, Boolean isOtherLookup, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
         pathSegments.add("users");
         pathSegments.add(username);
         pathSegments.add(subcategoryName);
         HttpUrl url = buildUrl(pathSegments);
+
+        // Check if the lookup should look for missing items
         if (checkForMissing) {
             url = url.newBuilder()
                     .addQueryParameter("mode", "missing")
                     .build();
         }
+
+        // Check if the lookup is for another player's items
         if (isOtherLookup) {
             url = url.newBuilder()
                     .addQueryParameter("other", "true")
+                    .build();
+        }
+
+        if (gameMode != null && !gameMode.isEmpty()) {
+            url = url.newBuilder()
+                    .addQueryParameter("gameMode", gameMode)
                     .build();
         }
 
