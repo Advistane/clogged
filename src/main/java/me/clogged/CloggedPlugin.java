@@ -150,7 +150,8 @@ public class CloggedPlugin extends Plugin {
     }
 
     private void checkForCollectionLogScriptFired() {
-        if (collectionLogScriptFiredTick != -1 && collectionLogScriptFiredTick + 2 > client.getTickCount() && !collectionLogInterfaceOpenedAndSynced) {
+        // Wait until script 4100 has been quiet for 2+ ticks
+        if (collectionLogScriptFiredTick != -1 && client.getTickCount() >= collectionLogScriptFiredTick + 2 && !collectionLogInterfaceOpenedAndSynced) {
             collectionLogScriptFiredTick = -1;
             collectionLogInterfaceOpenedAndSynced = true;
             syncCollectionLog();
@@ -160,12 +161,19 @@ public class CloggedPlugin extends Plugin {
     private void processScriptArguments(Object[] args) {
         int itemId = (int) args[1];
         int quantity = (int) args[2];
-        if (itemId > 0) {
-            try {
-                userCollectionLog.markItemAsObtained(itemId, quantity);
-            } catch (NullPointerException e) {
-                log.warn("Item ID {} not found in collection log structure", itemId);
-            }
+        if (itemId <= 0) {
+            return;
+        }
+
+        if (quantity <= 0) {
+            log.warn("Skipping collection log item {} with non-positive quantity {}", itemId, quantity);
+            return;
+        }
+
+        try {
+            userCollectionLog.markItemAsObtained(itemId, quantity);
+        } catch (Exception e) {
+            log.warn("Failed to record collection log item {}", itemId, e);
         }
     }
 
@@ -386,6 +394,10 @@ public class CloggedPlugin extends Plugin {
             showCollectionLogClosedMessage();
             return;
         }
+
+        userCollectionLog.clear();
+        collectionLogScriptFiredTick = -1;
+        collectionLogInterfaceOpenedAndSynced = false;
 
         populateUserCollectionLogKcs();
 

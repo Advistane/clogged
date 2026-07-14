@@ -37,6 +37,15 @@ public class UserCollectionLog {
         return json;
     }
 
+    public void clear() {
+        items.clear();
+        kcs.clear();
+    }
+
+    public int getItemCount() {
+        return items.size();
+    }
+
     public void markItemAsObtained(int itemId, int quantity) {
         if (itemId <= 0) {
             throw new IllegalArgumentException("Item ID must be positive.");
