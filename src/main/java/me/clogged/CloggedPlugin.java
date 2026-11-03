@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import lombok.NonNull;
@@ -13,6 +14,9 @@ import me.clogged.data.config.DisplayMethod;
 import me.clogged.data.config.SyncMethod;
 import me.clogged.helpers.AliasHelper;
 import net.runelite.api.*;
+import net.runelite.api.clan.ClanChannel;
+import net.runelite.api.clan.ClanChannelMember;
+import net.runelite.api.clan.ClanID;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
@@ -22,14 +26,19 @@ import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.RuneScapeProfileType;
+import net.runelite.client.events.ChatInput;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.WorldService;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
+import net.runelite.client.util.WorldUtil;
+import net.runelite.http.api.worlds.World;
+import net.runelite.http.api.worlds.WorldResult;
 
 import okhttp3.*;
 
@@ -53,6 +62,7 @@ public class CloggedPlugin extends Plugin {
     private static final int COLLECTION_LOG_SCRIPT_ID = 4100;
     private static final int TICKS_TO_WAIT_AFTER_LOAD = 2;
     private static final String MISSING_KEYWORD = "missing";
+    private static final long ACTIVE_GAME_MODE_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 
     private final UserCollectionLog userCollectionLog = new UserCollectionLog();
     private final Map<Integer, Integer> loadedCollectionLogIcons = new HashMap<>();
@@ -61,6 +71,9 @@ public class CloggedPlugin extends Plugin {
     private int collectionLogScriptFiredTick = -1;
     private boolean collectionLogInterfaceOpenedAndSynced = false;
     AliasHelper aliasHelper;
+
+    private volatile String lastReportedGameMode;
+    private volatile long lastReportedGameModeAt;
 
     @Inject private Client client;
     @Inject private CloggedConfig config;
@@ -71,10 +84,11 @@ public class CloggedPlugin extends Plugin {
     @Inject private ItemManager itemManager;
     @Inject private ConfigManager configManager;
     @Inject private CloggedApiClient cloggedApiClient;
+    @Inject private WorldService worldService;
 
     @Override
     protected void startUp() throws Exception {
-        chatCommandManager.registerCommandAsync(COLLECTION_LOG_COMMAND_STRING, this::handleChatMessage);
+        chatCommandManager.registerCommandAsync(COLLECTION_LOG_COMMAND_STRING, this::handleChatMessage, this::reportGameModeOnInput);
         if (config.enableLookup()) {
             cloggedApiClient.getKCAliases(kcAliasesCallback);
         }
@@ -184,7 +198,7 @@ public class CloggedPlugin extends Plugin {
             return;
         }
 
-        String commandArg = message.substring(COLLECTION_LOG_COMMAND_STRING.length() + 1);
+        String commandArg = getCommandArg(message);
         if (commandArg.equals("sync") && Objects.equals(Text.sanitize(chatMessage.getName()), client.getLocalPlayer().getName())) {
             clientThread.invoke(this::updateUserCollectionLog);
         } else if (commandArg.equals("help")) {
@@ -196,6 +210,81 @@ public class CloggedPlugin extends Plugin {
         } else {
             handleSubcategoryLookup(chatMessage, commandArg.trim());
         }
+    }
+
+    private static String getCommandArg(String message) {
+        return message.substring(COLLECTION_LOG_COMMAND_STRING.length() + 1);
+    }
+
+    private static boolean isLookupCommand(String message) {
+        if (message.length() <= COLLECTION_LOG_COMMAND_STRING.length() + 1) {
+            return false;
+        }
+
+        String commandArg = getCommandArg(message);
+        return !commandArg.equals("sync")
+                && !commandArg.equals("help")
+                && !commandArg.startsWith("join")
+                && !commandArg.startsWith("leave")
+                && !commandArg.trim().isEmpty();
+    }
+
+    /**
+     * Reports the sender's game mode before their lookup is sent, holding the message until the report completes.
+     *
+     * @return true if the message is being held
+     */
+    private boolean reportGameModeOnInput(ChatInput chatInput, String message) {
+        if (!isLookupCommand(message) || !config.enableSync() || isProxyConfigIncomplete()) {
+            return false;
+        }
+
+        Player localPlayer = client.getLocalPlayer();
+        if (localPlayer == null || localPlayer.getName() == null) {
+            return false;
+        }
+
+        String gameMode = RuneScapeProfileType.getCurrent(client).name();
+        if (gameMode.equals(lastReportedGameMode)
+                && System.currentTimeMillis() - lastReportedGameModeAt < ACTIVE_GAME_MODE_REPORT_INTERVAL_MS) {
+            return false;
+        }
+
+        JsonObject body = new JsonObject();
+        body.addProperty("accountHash", client.getAccountHash());
+        body.addProperty("username", localPlayer.getName());
+        body.addProperty("gameMode", gameMode);
+
+        try {
+            cloggedApiClient.reportActiveGameMode(body.toString(), new Callback() {
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    log.debug("Failed to report active game mode: {}", e.getMessage());
+                    chatInput.resume();
+                }
+
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) {
+                    if (response.isSuccessful()) {
+                        lastReportedGameMode = gameMode;
+                        lastReportedGameModeAt = System.currentTimeMillis();
+                    } else {
+                        log.debug("Failed to report active game mode: HTTP {}", response.code());
+                    }
+                    response.close();
+                    chatInput.resume();
+                }
+            });
+        } catch (Exception e) {
+            log.debug("Failed to report active game mode", e);
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isProxyConfigIncomplete() {
+        return config.proxyEnabled() && (config.proxyHost() == null || config.proxyHost().isEmpty() || config.proxyPort() <= 0);
     }
 
     private void handleGroupCommand(ChatMessage chatMessage, String commandArg, boolean join) {
@@ -210,7 +299,7 @@ public class CloggedPlugin extends Plugin {
                 return;
             }
 
-            if (config.proxyEnabled() && (config.proxyHost() == null || config.proxyHost().isEmpty() || config.proxyPort() <= 0)) {
+            if (isProxyConfigIncomplete()) {
                 showProxySettingsIncompleteMessage();
                 return;
             }
@@ -243,7 +332,7 @@ public class CloggedPlugin extends Plugin {
                 return;
             }
 
-            if (config.proxyEnabled() && (config.proxyHost() == null || config.proxyHost().isEmpty() || config.proxyPort() <= 0)) {
+            if (isProxyConfigIncomplete()) {
                 showProxySettingsIncompleteMessage();
                 return;
             }
@@ -251,16 +340,21 @@ public class CloggedPlugin extends Plugin {
             boolean isOtherLookup = false;
             String username = Text.sanitize(chatMessage.getName());
             String query = commandArg;
+            ChatMessageType chatType = chatMessage.getType();
 
-            if (chatMessage.getType().equals(ChatMessageType.PRIVATECHATOUT))
+            if (chatType.equals(ChatMessageType.PRIVATECHATOUT))
             {
                 username = client.getLocalPlayer().getName();
             }
+
+            // Public chat can only come from players on the same world as us
+            boolean isOnLocalWorld = chatType == ChatMessageType.PUBLICCHAT || chatType == ChatMessageType.MODCHAT;
 
             String otherPlayerName = getStringBetweenQuotes(query);
             if (otherPlayerName != null) {
                 username = Text.sanitize(otherPlayerName);
                 isOtherLookup = true;
+                isOnLocalWorld = false;
                 query = query.replace("\"" + otherPlayerName + "\"", "").trim();
             }
 
@@ -275,10 +369,143 @@ public class CloggedPlugin extends Plugin {
                 bossName = query.substring(MISSING_KEYWORD.length()).trim();
             }
 
-            String profileType = RuneScapeProfileType.getCurrent(client).name();
+            RuneScapeProfileType detectedProfileType = resolveProfileType(username, isOnLocalWorld);
+            boolean isSenderLookup = !isOtherLookup && !isLocalPlayer(username);
+            boolean useActiveGameMode = isSenderLookup || detectedProfileType == null;
+            String profileType = (detectedProfileType != null ? detectedProfileType : RuneScapeProfileType.STANDARD).name();
 
-            cloggedApiClient.getUserCollectionLog(username, profileType, bossName, isMissingSearch, isOtherLookup, subcategoryLookupCallback(chatMessage, isMissingSearch, isOtherLookup));
+            cloggedApiClient.getUserCollectionLog(username, profileType, useActiveGameMode, bossName, isMissingSearch, isOtherLookup, subcategoryLookupCallback(chatMessage, isMissingSearch, isOtherLookup));
         });
+    }
+
+    // Game mode resolution
+
+    // Returns null if the player's game mode can't be determined. Must be called on the client thread.
+    @Nullable
+    private RuneScapeProfileType resolveProfileType(String username, boolean isOnLocalWorld) {
+        RuneScapeProfileType current = RuneScapeProfileType.getCurrent(client);
+        if (isOnLocalWorld || isLocalPlayer(username) || isPlayerInScene(username)) {
+            return current;
+        }
+
+        int world = findPlayerWorld(username);
+        if (world <= 0) {
+            return null;
+        }
+
+        if (world == client.getWorld()) {
+            return current;
+        }
+
+        return getProfileTypeForWorld(world);
+    }
+
+    private boolean isLocalPlayer(String username) {
+        Player localPlayer = client.getLocalPlayer();
+        return localPlayer != null && namesMatch(localPlayer.getName(), username);
+    }
+
+    private boolean isPlayerInScene(String username) {
+        WorldView worldView = client.getTopLevelWorldView();
+        if (worldView == null) {
+            return false;
+        }
+
+        for (Player player : worldView.players()) {
+            if (player != null && namesMatch(player.getName(), username)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Returns the world the player is on, or -1 if they can't be found in any of our social lists
+    private int findPlayerWorld(String username) {
+        int world = findWorldInContainer(client.getFriendContainer(), username);
+        if (world > 0) {
+            return world;
+        }
+
+        world = findWorldInContainer(client.getFriendsChatManager(), username);
+        if (world > 0) {
+            return world;
+        }
+
+        for (ClanChannel channel : new ClanChannel[]{
+                client.getClanChannel(),
+                client.getGuestClanChannel(),
+                client.getClanChannel(ClanID.GROUP_IRONMAN)
+        }) {
+            if (channel == null) {
+                continue;
+            }
+
+            for (ClanChannelMember member : channel.getMembers()) {
+                if (namesMatch(member.getName(), username) && member.getWorld() > 0) {
+                    return member.getWorld();
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    private int findWorldInContainer(NameableContainer<? extends ChatPlayer> container, String username) {
+        if (container == null) {
+            return -1;
+        }
+
+        for (ChatPlayer member : container.getMembers()) {
+            if (member != null && namesMatch(member.getName(), username)) {
+                return member.getWorld();
+            }
+        }
+        return -1;
+    }
+
+    private static boolean namesMatch(String a, String b) {
+        return a != null && b != null && Text.standardize(a).equals(Text.standardize(b));
+    }
+
+    // Mirrors the checks in RuneScapeProfileType.getCurrent, but for an arbitrary world. Returns null if the world is unknown.
+    @Nullable
+    private RuneScapeProfileType getProfileTypeForWorld(int worldNumber) {
+        WorldResult worldResult = worldService.getWorlds();
+        World world = worldResult != null ? worldResult.findWorld(worldNumber) : null;
+        if (world == null) {
+            return null;
+        }
+
+        EnumSet<WorldType> types = WorldUtil.toWorldTypes(world.getTypes());
+        if (types.contains(WorldType.SEASONAL)) {
+            return getCurrentLeagueProfileType();
+        } else if (types.contains(WorldType.PVP_ARENA)) {
+            return RuneScapeProfileType.PVP_ARENA;
+        } else if (types.contains(WorldType.DEADMAN)) {
+            return RuneScapeProfileType.DEADMAN;
+        } else if (types.contains(WorldType.QUEST_SPEEDRUNNING)) {
+            return RuneScapeProfileType.QUEST_SPEEDRUNNING;
+        } else if (types.contains(WorldType.NOSAVE_MODE) || types.contains(WorldType.BETA_WORLD)) {
+            return RuneScapeProfileType.BETA;
+        }
+        return RuneScapeProfileType.STANDARD;
+    }
+
+    // RuneLite appends each new league to the end of RuneScapeProfileType and maps SEASONAL worlds to it,
+    // so the last *_LEAGUE entry is the active league
+    private RuneScapeProfileType getCurrentLeagueProfileType() {
+        RuneScapeProfileType current = RuneScapeProfileType.getCurrent(client);
+        if (client.getWorldType().contains(WorldType.SEASONAL)) {
+            return current;
+        }
+
+        RuneScapeProfileType[] types = RuneScapeProfileType.values();
+        for (int i = types.length - 1; i >= 0; i--) {
+            if (types[i].name().endsWith("_LEAGUE")) {
+                return types[i];
+            }
+        }
+        return RuneScapeProfileType.STANDARD;
     }
 
     private static boolean isMissingSearch(String commandArg) {

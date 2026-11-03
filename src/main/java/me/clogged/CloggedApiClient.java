@@ -7,10 +7,12 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class CloggedApiClient {
     private static final String COLLECTION_LOG_API_HOST = "api.clogged.me";
     private static final String COLLECTION_LOG_USER_AGENT = "Runelite clogged/" + CloggedConfig.PLUGIN_VERSION;
+    private static final long ACTIVE_GAME_MODE_TIMEOUT_SECONDS = 3;
     private static final MediaType COLLECTION_LOG_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
 
     @Inject
@@ -40,7 +42,25 @@ public class CloggedApiClient {
         }
     }
 
-    public void getUserCollectionLog(String username, String gameMode, String subcategoryName, Boolean checkForMissing, Boolean isOtherLookup, Callback callback) {
+    public void reportActiveGameMode(String requestBodyJson, Callback callback) {
+        List<String> pathSegments = new ArrayList<>();
+        pathSegments.add("users");
+        pathSegments.add("active-game-mode");
+        HttpUrl url = buildUrl(pathSegments);
+
+        RequestBody requestBody = RequestBody.create(COLLECTION_LOG_MEDIA_TYPE, requestBodyJson);
+        Request request = createRequestBuilder(url)
+                .put(requestBody)
+                .build();
+
+        getOkHttpClient().newBuilder()
+                .callTimeout(ACTIVE_GAME_MODE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .build()
+                .newCall(request)
+                .enqueue(callback);
+    }
+
+    public void getUserCollectionLog(String username, String gameMode, boolean useActiveGameMode, String subcategoryName, Boolean checkForMissing, Boolean isOtherLookup, Callback callback) {
         List<String> pathSegments = new ArrayList<>();
         pathSegments.add("users");
         pathSegments.add(username);
@@ -64,6 +84,12 @@ public class CloggedApiClient {
         if (gameMode != null && !gameMode.isEmpty()) {
             url = url.newBuilder()
                     .addQueryParameter("gameMode", gameMode)
+                    .build();
+        }
+
+        if (useActiveGameMode) {
+            url = url.newBuilder()
+                    .addQueryParameter("useActiveGameMode", "true")
                     .build();
         }
 
