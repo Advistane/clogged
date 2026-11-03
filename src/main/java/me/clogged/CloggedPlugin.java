@@ -29,6 +29,7 @@ import net.runelite.client.config.RuneScapeProfileType;
 import net.runelite.client.events.ChatInput;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.WorldsFetch;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.WorldService;
 import net.runelite.client.plugins.Plugin;
@@ -46,6 +47,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -72,6 +74,8 @@ public class CloggedPlugin extends Plugin {
     private boolean collectionLogInterfaceOpenedAndSynced = false;
     AliasHelper aliasHelper;
 
+    private volatile WorldResult worldResult;
+
     private volatile String lastReportedGameMode;
     private volatile long lastReportedGameModeAt;
 
@@ -85,10 +89,18 @@ public class CloggedPlugin extends Plugin {
     @Inject private ConfigManager configManager;
     @Inject private CloggedApiClient cloggedApiClient;
     @Inject private WorldService worldService;
+    @Inject private ScheduledExecutorService executor;
 
     @Override
     protected void startUp() throws Exception {
         chatCommandManager.registerCommandAsync(COLLECTION_LOG_COMMAND_STRING, this::handleChatMessage, this::reportGameModeOnInput);
+        // getWorlds() can block until the first world fetch completes, so load it off the client thread
+        executor.execute(() -> {
+            WorldResult worlds = worldService.getWorlds();
+            if (worldResult == null) {
+                worldResult = worlds;
+            }
+        });
         if (config.enableLookup()) {
             cloggedApiClient.getKCAliases(kcAliasesCallback);
         }
@@ -97,6 +109,7 @@ public class CloggedPlugin extends Plugin {
     @Override
     protected void shutDown() throws Exception {
         chatCommandManager.unregisterCommand(COLLECTION_LOG_COMMAND_STRING);
+        worldResult = null;
     }
 
     @Provides
@@ -105,6 +118,11 @@ public class CloggedPlugin extends Plugin {
     }
 
     // Event Handling
+
+    @Subscribe
+    public void onWorldsFetch(WorldsFetch worldsFetch) {
+        worldResult = worldsFetch.getWorldResult();
+    }
 
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded widgetLoaded) {
@@ -470,7 +488,7 @@ public class CloggedPlugin extends Plugin {
     // Mirrors the checks in RuneScapeProfileType.getCurrent, but for an arbitrary world. Returns null if the world is unknown.
     @Nullable
     private RuneScapeProfileType getProfileTypeForWorld(int worldNumber) {
-        WorldResult worldResult = worldService.getWorlds();
+        WorldResult worldResult = this.worldResult;
         World world = worldResult != null ? worldResult.findWorld(worldNumber) : null;
         if (world == null) {
             return null;
