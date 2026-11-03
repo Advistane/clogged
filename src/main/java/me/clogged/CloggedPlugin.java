@@ -678,8 +678,16 @@ public class CloggedPlugin extends Plugin {
 
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
+                boolean successful = response.isSuccessful();
+                int code = response.code();
                 response.close();
-                showSyncSuccessMessage();
+
+                if (successful) {
+                    showSyncSuccessMessage();
+                } else {
+                    log.error("Unable to upload data to Clogged.me: HTTP {}", code);
+                    showSyncFailedMessage();
+                }
             }
         };
     }
