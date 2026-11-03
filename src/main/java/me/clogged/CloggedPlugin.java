@@ -59,8 +59,6 @@ import java.util.stream.Collectors;
 )
 public class CloggedPlugin extends Plugin {
     private static final String COLLECTION_LOG_COMMAND_STRING = "!clog";
-    private static final int CLOG_CONTAINER_WIDGET_ID = 40697943;
-    private static final int CLOG_SEARCH_WIDGET_ID = 40697932;
     private static final int COLLECTION_LOG_SCRIPT_ID = 4100;
     private static final int TICKS_TO_WAIT_AFTER_LOAD = 2;
     private static final String MISSING_KEYWORD = "missing";
@@ -577,12 +575,12 @@ public class CloggedPlugin extends Plugin {
                 assert response.body() != null;
                 String responseBody = response.body().string();
                 if (response.code() == 404) {
-                    boolean isOriginalSender = chatMessage.getType().equals(ChatMessageType.PRIVATECHATOUT) || Objects.equals(Text.sanitize(chatMessage.getName()), client.getLocalPlayer().getName());
-                    if (isOriginalSender) {
-                        clientThread.invoke(() -> {
+                    clientThread.invoke(() -> {
+                        boolean isOriginalSender = chatMessage.getType().equals(ChatMessageType.PRIVATECHATOUT) || Objects.equals(Text.sanitize(chatMessage.getName()), client.getLocalPlayer().getName());
+                        if (isOriginalSender) {
                             updateChatMessage(chatMessage, responseBody);
-                        });
-                    }
+                        }
+                    });
                     return;
                 }
 
@@ -634,7 +632,7 @@ public class CloggedPlugin extends Plugin {
             return;
         }
 
-        Widget collectionLogContainer = client.getWidget(CLOG_CONTAINER_WIDGET_ID);
+        Widget collectionLogContainer = client.getWidget(InterfaceID.Collection.INFINITY);
         if (collectionLogContainer == null) {
             showCollectionLogClosedMessage();
             return;
@@ -647,7 +645,7 @@ public class CloggedPlugin extends Plugin {
         populateUserCollectionLogKcs();
 
         // Trigger search to load all items
-        client.menuAction(-1, CLOG_SEARCH_WIDGET_ID, MenuAction.CC_OP, 1, -1, "Search", null);
+        client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null);
         client.runScript(2240);
     }
 
