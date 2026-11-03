@@ -70,7 +70,7 @@ public class CloggedPlugin extends Plugin {
     private int ticksToWait = 0;
     private int collectionLogScriptFiredTick = -1;
     private boolean collectionLogInterfaceOpenedAndSynced = false;
-    AliasHelper aliasHelper;
+    volatile AliasHelper aliasHelper;
 
     private volatile WorldResult worldResult;
 
@@ -99,7 +99,7 @@ public class CloggedPlugin extends Plugin {
                 worldResult = worlds;
             }
         });
-        if (config.enableLookup()) {
+        if (config.enableLookup() || config.enableSync()) {
             cloggedApiClient.getKCAliases(kcAliasesCallback);
         }
     }
@@ -169,7 +169,9 @@ public class CloggedPlugin extends Plugin {
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
         if (aliasHelper == null && event.getGroup().equals("clogged")) {
-            if (Objects.equals(event.getKey(), "enableLookup") && config.enableLookup()) {
+            boolean enabled = (Objects.equals(event.getKey(), "enableLookup") && config.enableLookup())
+                    || (Objects.equals(event.getKey(), "enableSync") && config.enableSync());
+            if (enabled) {
                 cloggedApiClient.getKCAliases(kcAliasesCallback);
             }
         }
@@ -995,6 +997,10 @@ public class CloggedPlugin extends Plugin {
     }
 
     private void populateUserCollectionLogKcs() {
+        if (aliasHelper == null) {
+            cloggedApiClient.getKCAliases(kcAliasesCallback);
+        }
+
         Map<String, Integer> categoryEnumMap = createCategoryEnumMap();
         for (Map.Entry<String, Integer> entry : categoryEnumMap.entrySet()) {
             int enumId = entry.getValue();
@@ -1038,11 +1044,9 @@ public class CloggedPlugin extends Plugin {
     }
 
     private int getSimpleKcForBoss(String boss) {
-        if (aliasHelper == null && config.enableLookup()) {
-            cloggedApiClient.getKCAliases(kcAliasesCallback);
-        }
-
-        Integer killCount = configManager.getRSProfileConfiguration("killcount", aliasHelper.getFullNameByAlias(boss), int.class);
+        AliasHelper aliases = aliasHelper;
+        String bossKey = aliases != null ? aliases.getFullNameByAlias(boss) : boss.toLowerCase();
+        Integer killCount = configManager.getRSProfileConfiguration("killcount", bossKey, int.class);
         return killCount != null ? killCount : -1;
     }
 }
